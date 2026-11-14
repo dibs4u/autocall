@@ -36,6 +36,12 @@ To build on a computer instead: open the folder in Android Studio and run
 
 Try it first with two or three of your own numbers.
 
+**If step 1 shows "Restricted setting".** Android 15 and newer block the default phone app
+choice for apps installed from a downloaded file. Open the phone's
+**Settings > Apps > AutoCaller**, tap the three dots at the top right, choose
+**Allow restricted settings**, then go back to AutoCaller and press **Set** again.
+(The option only appears after the phone has shown the "Restricted setting" message once.)
+
 ### CSV format
 
 One phone number per row. A header row and a name column are optional:

@@ -197,6 +197,16 @@ public class MainActivity extends Activity implements CampaignService.Listener {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         refreshSetup();
+        if (requestCode == REQ_ROLE && !Util.isDefaultDialer(this)) {
+            // Newer Android versions block this for apps installed from a downloaded file
+            // until the user allows it on the app's info page.
+            Ui.info(this, "Not the default phone app yet",
+                    "AutoCaller was not made the default phone app.\n\nIf the phone showed"
+                            + " “Restricted setting”: open the phone's Settings > Apps >"
+                            + " AutoCaller, tap the three dots at the top right, choose"
+                            + " “Allow restricted settings”, then come back here and"
+                            + " press Set again.");
+        }
     }
 
     @Override
