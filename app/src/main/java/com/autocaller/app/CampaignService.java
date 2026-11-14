@@ -655,12 +655,17 @@ public class CampaignService extends Service {
                     int type = playMode == Prefs.MODE_EARPIECE_CALL_SPEAKER_MSG
                             ? AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
                             : playMode == Prefs.MODE_SPEAKER_CALL_EARPIECE_MSG
-                            ? AudioDeviceInfo.TYPE_BUILTIN_EARPIECE : -1;
+                            ? AudioDeviceInfo.TYPE_BUILTIN_EARPIECE
+                            : playMode == Prefs.MODE_DIRECT
+                            ? AudioDeviceInfo.TYPE_TELEPHONY : -1;
                     if (type >= 0) {
                         AudioDeviceInfo device = Util.outputDevice(CampaignService.this, type);
                         boolean accepted = device != null && mp.setPreferredDevice(device);
                         Logx.log("Asked for the message on the " + Util.deviceName(type)
                                 + ": " + (accepted ? "accepted" : "not possible"));
+                        if (!accepted && playMode == Prefs.MODE_DIRECT) {
+                            a.note = "The phone did not allow direct playback into the call";
+                        }
                     }
                 }
                 mp.prepare();

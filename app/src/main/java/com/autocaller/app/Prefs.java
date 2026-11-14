@@ -37,6 +37,7 @@ final class Prefs {
     static final int MODE_SPEAKER_CALL_EARPIECE_MSG = 3; // call on loudspeaker, message on earpiece
     static final int MODE_EARPIECE = 4;                  // call and message on the earpiece
     static final int MODE_WIRED = 5;
+    static final int MODE_DIRECT = 7;                    // straight into the call (system-only on most phones)
     static final int MODE_BLUETOOTH = 6;                 // Bluetooth headphones or headset
                         // wired earphones or an audio cable
     static final int DEF_VOLUME_PCT = 100;
