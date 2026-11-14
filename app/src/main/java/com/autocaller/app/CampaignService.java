@@ -332,11 +332,12 @@ public class CampaignService extends Service {
         }
     };
 
-    private boolean withinHours() {
-        if (hourFrom == hourTo || (hourFrom <= 0 && hourTo >= 24)) return true;
+    /** True if the current hour is inside the allowed calling hours (0 and 24 = no limit). */
+    static boolean withinHours(int from, int to) {
+        if (from == to || (from <= 0 && to >= 24)) return true;
         int now = Calendar.getInstance().get(Calendar.HOUR_OF_DAY);
-        if (hourFrom < hourTo) return now >= hourFrom && now < hourTo;
-        return now >= hourFrom || now < hourTo; // window that crosses midnight
+        if (from < to) return now >= from && now < to;
+        return now >= from || now < to; // window that crosses midnight
     }
 
     private void doDialNext() {
@@ -345,9 +346,9 @@ public class CampaignService extends Service {
             finish(stopReason);
             return;
         }
-        if (!withinHours()) {
+        if (!withinHours(hourFrom, hourTo)) {
             finish("Outside the calling hours (" + hourFrom + ":00 to " + hourTo
-                    + ":00). Press Start again later.");
+                    + ":00). Change them in Settings, or press Start again later.");
             return;
         }
         if (!Util.isDefaultDialer(this)) {

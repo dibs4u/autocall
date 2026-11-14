@@ -474,6 +474,14 @@ public class MainActivity extends Activity implements CampaignService.Listener {
                     + " list and choose “Call unanswered numbers again”.");
             return;
         }
+        int from = Prefs.getInt(this, Prefs.HOUR_FROM, Prefs.DEF_HOUR_FROM);
+        int to = Prefs.getInt(this, Prefs.HOUR_TO, Prefs.DEF_HOUR_TO);
+        if (!CampaignService.withinHours(from, to)) {
+            Ui.info(this, "Outside the calling hours", "Calls are set to start only between "
+                    + from + ":00 and " + to + ":00.\n\nTo call now, open Settings and change the"
+                    + " calling hours (0 and 24 means no limit).");
+            return;
+        }
         Ui.confirm(this, "Start calling?", toCall + " numbers will be called one after another"
                         + " from this phone's SIM. When someone answers, your message plays on"
                         + " the loudspeaker and the call then ends.\n\nPut the phone down in a"
