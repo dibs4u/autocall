@@ -7,6 +7,9 @@ import android.util.Log;
 
 public class App extends Application {
 
+    /** Shown on the home screen; keep in step with versionName in app/build.gradle. */
+    static final String VERSION = "1.1";
+
     static final String CH_RUN = "campaign";
     static final String CH_CALLS = "calls";
     static final String CH_DONE = "done";

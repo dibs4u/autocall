@@ -24,9 +24,20 @@ final class Prefs {
     static final String HOUR_FROM = "hour_from";             // calling hours, 0-24
     static final String HOUR_TO = "hour_to";
     static final String SIM_ID = "sim_id";                   // "" = phone default
-    static final String PLAY_STREAM = "play_stream";         // 0 = media, 1 = voice-call stream
+    static final String PLAY_STREAM = "play_stream";         // one of the MODE_ values below
+    static final String VOLUME_PCT = "volume_pct";           // loudness of the message, 10-100
+    static final String TEST_NUMBER = "test_number";         // last number used for a test call
 
     static final String LIST_NAME = "list_name";             // name of the last imported file
+
+    // How the message is carried to the other person (see Settings for the explanation).
+    static final int MODE_SPEAKER_MEDIA = 0;             // call and message on the loudspeaker
+    static final int MODE_SPEAKER_CALL = 1;              // same, on the call's volume channel
+    static final int MODE_EARPIECE_CALL_SPEAKER_MSG = 2; // call on earpiece, message on loudspeaker
+    static final int MODE_SPEAKER_CALL_EARPIECE_MSG = 3; // call on loudspeaker, message on earpiece
+    static final int MODE_EARPIECE = 4;                  // call and message on the earpiece
+    static final int MODE_WIRED = 5;                     // wired earphones or an audio cable
+    static final int DEF_VOLUME_PCT = 100;
 
     static final int DEF_GAP_SEC = 5;
     static final int DEF_RING_SEC = 35;

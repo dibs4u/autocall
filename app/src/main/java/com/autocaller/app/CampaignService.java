@@ -7,6 +7,7 @@ import android.app.Service;
 import android.content.Intent;
 import android.content.pm.ServiceInfo;
 import android.media.AudioAttributes;
+import android.media.AudioDeviceInfo;
 import android.media.AudioManager;
 import android.media.MediaPlayer;
 import android.net.Uri;
@@ -24,6 +25,7 @@ import android.telecom.TelecomManager;
 import java.io.File;
 import java.util.Calendar;
 import java.util.List;
+import java.util.Locale;
 
 /**
  * The calling run: takes the next number from the list, places the call, waits for it to be
@@ -36,6 +38,9 @@ import java.util.List;
 public class CampaignService extends Service {
 
     static final String ACTION_START = "com.autocaller.app.action.START";
+    /** One call to the number in EXTRA_NUMBER, to hear how the message sounds. */
+    static final String ACTION_TEST = "com.autocaller.app.action.TEST";
+    static final String EXTRA_NUMBER = "number";
 
     static final int PH_IDLE = 0;
     static final int PH_PLACING = 1;
@@ -111,8 +116,11 @@ public class CampaignService extends Service {
     private int retries;
     private int hourFrom;
     private int hourTo;
-    private int playStream;
+    private int playMode;
+    private int volumePct;
     private int audioMs;
+    private String testNumber;   // not null while a single test call is being made
+    private boolean testPlaced;
     private String audioPath = "";
     private String simId = "";
     private String simLabel = "";
@@ -135,7 +143,9 @@ public class CampaignService extends Service {
     public int onStartCommand(Intent intent, int flags, int startId) {
         String action = intent == null ? null : intent.getAction();
         if (ACTION_START.equals(action)) {
-            startRun();
+            startRun(null);
+        } else if (ACTION_TEST.equals(action)) {
+            startRun(intent.getStringExtra(EXTRA_NUMBER));
         } else if (!running) {
             stopSelf();
         }
@@ -174,6 +184,12 @@ public class CampaignService extends Service {
         return s != null && s.cur != null && !s.cur.finished && s.cur.answerTime > 0;
     }
 
+    /** Called when the phone changes the call's audio output: put it back where it should be. */
+    static void keepRoute() {
+        CampaignService s = instance;
+        if (s != null && isAnswered()) CallService.applyRoute(s.playMode);
+    }
+
     /** One line saying what the run is doing right now. */
     static String describe() {
         long now = System.currentTimeMillis();
@@ -201,8 +217,10 @@ public class CampaignService extends Service {
         return Math.max(lo, Math.min(hi, v));
     }
 
-    private void startRun() {
+    private void startRun(String test) {
         if (running) return;
+        testNumber = test != null && test.length() > 0 ? test : null;
+        testPlaced = false;
         gapMs = clamp(Prefs.getInt(this, Prefs.GAP_SEC, Prefs.DEF_GAP_SEC), 2, 600) * 1000L;
         ringMs = clamp(Prefs.getInt(this, Prefs.RING_SEC, Prefs.DEF_RING_SEC), 10, 90) * 1000L;
         answerDelayMs = clamp(Prefs.getInt(this, Prefs.ANSWER_DELAY_MS, Prefs.DEF_ANSWER_DELAY_MS), 0, 10000);
@@ -211,7 +229,8 @@ public class CampaignService extends Service {
         retryWaitMs = clamp(Prefs.getInt(this, Prefs.RETRY_WAIT_MIN, Prefs.DEF_RETRY_WAIT_MIN), 0, 240) * 60000L;
         hourFrom = clamp(Prefs.getInt(this, Prefs.HOUR_FROM, Prefs.DEF_HOUR_FROM), 0, 24);
         hourTo = clamp(Prefs.getInt(this, Prefs.HOUR_TO, Prefs.DEF_HOUR_TO), 0, 24);
-        playStream = Prefs.getInt(this, Prefs.PLAY_STREAM, 0);
+        playMode = clamp(Prefs.getInt(this, Prefs.PLAY_STREAM, 0), 0, Util.PLAY_MODES.length - 1);
+        volumePct = clamp(Prefs.getInt(this, Prefs.VOLUME_PCT, Prefs.DEF_VOLUME_PCT), 10, 100);
         audioPath = Prefs.getString(this, Prefs.AUDIO_PATH, "");
         audioMs = Math.max(0, Prefs.getInt(this, Prefs.AUDIO_MS, 0));
         simId = Prefs.getString(this, Prefs.SIM_ID, "");
@@ -243,7 +262,9 @@ public class CampaignService extends Service {
         goForeground();
         acquireWakeLock();
         Logx.log("Run started: gap=" + gapMs + "ms ringLimit=" + ringMs + "ms repeat=" + repeat
-                + " retries=" + retries + " sim=" + simLabel + " stream=" + playStream
+                + " retries=" + retries + " sim=" + simLabel
+                + " method=[" + Util.playModeLabel(playMode) + "] volume=" + volumePct + "%"
+                + (testNumber != null ? " TEST CALL" : "")
                 + " phone=" + Build.MANUFACTURER + " " + Build.MODEL
                 + " Android " + Build.VERSION.RELEASE);
         nextDialAt = System.currentTimeMillis();
@@ -346,7 +367,7 @@ public class CampaignService extends Service {
             finish(stopReason);
             return;
         }
-        if (!withinHours(hourFrom, hourTo)) {
+        if (testNumber == null && !withinHours(hourFrom, hourTo)) {
             finish("Outside the calling hours (" + hourFrom + ":00 to " + hourTo
                     + ":00). Change them in Settings, or press Start again later.");
             return;
@@ -362,6 +383,20 @@ public class CampaignService extends Service {
             if (phase != PH_WAIT) setPhase(PH_WAIT);
             else notifyUi();
             h.postDelayed(dialNext, 2000);
+            return;
+        }
+        if (testNumber != null) {
+            if (testPlaced) {
+                finish("Test call finished.");
+                return;
+            }
+            testPlaced = true;
+            Db.Contact t = new Db.Contact();
+            t.id = -1; // not in the list: only the call history gets a row
+            t.name = "Test call";
+            t.number = testNumber;
+            t.list = "Test";
+            place(t);
             return;
         }
         Db.Contact c = db.nextPending();
@@ -406,7 +441,9 @@ public class CampaignService extends Service {
         try {
             TelecomManager tm = (TelecomManager) getSystemService(TELECOM_SERVICE);
             Bundle extras = new Bundle();
-            extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, true);
+            if (Util.callOnSpeaker(playMode)) {
+                extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, true);
+            }
             PhoneAccountHandle sim = Util.findSim(this, simId);
             if (sim != null) extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, sim);
             Logx.log("Dialling " + a.number + " (attempt " + a.attemptNo + ")");
@@ -516,7 +553,8 @@ public class CampaignService extends Service {
                     Logx.log("Answered: " + a.number + " after "
                             + Util.secs(a.answerTime - a.dialTime) + " s");
                     setPhase(PH_ANSWERED);
-                    CallService.forceSpeaker();
+                    CallService.applyRoute(playMode);
+                    logAudio("answer");
                     h.postDelayed(startPlayback, answerDelayMs);
                     h.postDelayed(maxCallWatchdog, answerDelayMs + a.audioTotalMs + 20000L);
                 }
@@ -599,15 +637,30 @@ public class CampaignService extends Service {
             final Attempt a = cur;
             if (a == null || a.finished || a.answerTime == 0) return;
             try {
-                CallService.forceSpeaker();
+                CallService.applyRoute(playMode);
                 raiseVolumes();
                 MediaPlayer mp = new MediaPlayer();
                 player = mp;
                 mp.setAudioAttributes(new AudioAttributes.Builder()
-                        .setUsage(playStream == 1 ? AudioAttributes.USAGE_VOICE_COMMUNICATION
+                        .setUsage(playMode == Prefs.MODE_SPEAKER_CALL
+                                ? AudioAttributes.USAGE_VOICE_COMMUNICATION
                                 : AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .build());
+                // Two of the methods play the message from a different speaker than the one
+                // the call uses, so that the phone does not treat it as echo of the call.
+                if (Build.VERSION.SDK_INT >= 28) {
+                    int type = playMode == Prefs.MODE_EARPIECE_CALL_SPEAKER_MSG
+                            ? AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
+                            : playMode == Prefs.MODE_SPEAKER_CALL_EARPIECE_MSG
+                            ? AudioDeviceInfo.TYPE_BUILTIN_EARPIECE : -1;
+                    if (type >= 0) {
+                        AudioDeviceInfo device = Util.outputDevice(CampaignService.this, type);
+                        boolean accepted = device != null && mp.setPreferredDevice(device);
+                        Logx.log("Asked for the message on the " + Util.deviceName(type)
+                                + ": " + (accepted ? "accepted" : "not possible"));
+                    }
+                }
                 mp.setDataSource(audioPath);
                 mp.prepare();
                 final int length = Math.max(mp.getDuration(), 0);
@@ -631,10 +684,29 @@ public class CampaignService extends Service {
                 });
                 mp.start();
                 setPhase(PH_PLAYING);
+                logAudio("playing");
+                h.postDelayed(logRoutedDevice, 800);
             } catch (Exception e) {
                 Logx.err("playback", e);
                 a.note = "The message could not be played: " + e.getMessage();
                 h.postDelayed(hangUpNow, 500);
+            }
+        }
+    };
+
+    /** Logs which speaker the message is really coming out of (the phone has the last word). */
+    private final Runnable logRoutedDevice = new Runnable() {
+        @Override
+        public void run() {
+            MediaPlayer mp = player;
+            if (mp == null || Build.VERSION.SDK_INT < 28) return;
+            try {
+                AudioDeviceInfo d = mp.getRoutedDevice();
+                Logx.log("The message is coming out of: "
+                        + (d == null ? "unknown" : Util.deviceName(d.getType()))
+                        + " | " + CallService.audioSummary());
+            } catch (Exception e) {
+                Logx.err("routed device", e);
             }
         }
     };
@@ -694,18 +766,45 @@ public class CampaignService extends Service {
         }
     }
 
-    /** The far end hears the message through the loudspeaker, so play it as loud as possible. */
+    /**
+     * Sets the loudness for the message. The phone's microphone is what carries it to the
+     * other person, so it normally plays at full volume (Settings can lower it).
+     */
     private void raiseVolumes() {
         try {
             AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
             if (savedMusicVolume < 0) savedMusicVolume = am.getStreamVolume(AudioManager.STREAM_MUSIC);
             if (savedCallVolume < 0) savedCallVolume = am.getStreamVolume(AudioManager.STREAM_VOICE_CALL);
+            int musicMax = am.getStreamMaxVolume(AudioManager.STREAM_MUSIC);
+            int callMax = am.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL);
             am.setStreamVolume(AudioManager.STREAM_MUSIC,
-                    am.getStreamMaxVolume(AudioManager.STREAM_MUSIC), 0);
+                    Math.max(1, Math.round(musicMax * volumePct / 100f)), 0);
+            // During a call Android caps other sounds by the call volume, so raise that too.
             am.setStreamVolume(AudioManager.STREAM_VOICE_CALL,
-                    am.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL), 0);
+                    Math.max(1, Math.round(callMax * volumePct / 100f)), 0);
         } catch (Exception e) {
             Logx.err("raiseVolumes", e);
+        }
+    }
+
+    /** Writes the phone's audio state to the activity log, to help when a method fails. */
+    private void logAudio(String when) {
+        try {
+            AudioManager am = (AudioManager) getSystemService(AUDIO_SERVICE);
+            StringBuilder sb = new StringBuilder("Audio at ").append(when).append(": ")
+                    .append(CallService.audioSummary())
+                    .append(" mode=").append(am.getMode())
+                    .append(" media=").append(am.getStreamVolume(AudioManager.STREAM_MUSIC))
+                    .append('/').append(am.getStreamMaxVolume(AudioManager.STREAM_MUSIC))
+                    .append(" call=").append(am.getStreamVolume(AudioManager.STREAM_VOICE_CALL))
+                    .append('/').append(am.getStreamMaxVolume(AudioManager.STREAM_VOICE_CALL))
+                    .append(" outputs=");
+            for (AudioDeviceInfo d : am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                sb.append(d.getType()).append(' ');
+            }
+            Logx.log(sb.toString().trim());
+        } catch (Exception e) {
+            Logx.err("logAudio", e);
         }
     }
 
@@ -799,6 +898,7 @@ public class CampaignService extends Service {
         h.removeCallbacks(hangUpNow);
         h.removeCallbacks(maxCallWatchdog);
         h.removeCallbacks(forceEnd);
+        h.removeCallbacks(logRoutedDevice);
         stopPlayer(a);
         if (a.call != null) {
             try {
@@ -854,6 +954,19 @@ public class CampaignService extends Service {
 
         cur = null;
         if (!running) return;
+        if (testNumber != null) {
+            String how;
+            if (result == Db.ANSWERED) {
+                how = a.audioDone ? "answered, and the message was played to the end"
+                        : "answered, and " + Util.secs(a.audioMs) + " of "
+                        + Util.secs(a.audioTotalMs) + " s of the message was played";
+            } else {
+                how = Util.statusLabel(result).toLowerCase(Locale.US);
+            }
+            finish("Test call: " + how + ". Method: " + Util.playModeLabel(playMode)
+                    + ". Ask the person whether they heard it.");
+            return;
+        }
         if (stopRequested) {
             finish(stopReason);
             return;

@@ -61,13 +61,31 @@ Sita,+91 98123 45678
   saving the CSV.
 - `.xlsx` files are not read: use **Save as > CSV**.
 
+## If the other person cannot hear the message
+
+Android does not allow an ordinary app to put sound straight into a phone call, so the message
+has to reach the other person through a microphone. Which way works depends on the phone.
+Choose the method in **Settings > How the message reaches the other person**, and check it with
+**Test call to one number** on the home screen (call a second phone you can listen to, kept in
+another room).
+
+| Method | What happens | When to use it |
+| --- | --- | --- |
+| Loudspeaker, media volume | The call is on loudspeaker; the phone's speaker plays the message and its microphone picks it up. | Default. Many phones remove their own speaker sound from a call as echo. If the message plays loudly but the other person hears nothing, this is why. |
+| Loudspeaker, call volume | The same, played on the call's own volume channel. | Worth one test if the first method is silent or very quiet. |
+| Call on earpiece, message on loudspeaker | The call stays on the earpiece and the app asks the phone to play the message on the loudspeaker. | The message is not the call's own sound, so it is not removed as echo. Not every phone allows the split. |
+| Call on loudspeaker, message on earpiece | The reverse split. | Same idea; try it if the previous one does not work. |
+| Earpiece only | Call and message both on the small speaker at the top of the phone. | Quiet, but some phones do not filter it out. |
+| Wired earphones or audio cable | The call and the message go to the earphones. | Works on almost every phone. Plug in earphones and keep one earbud pressed against the microphone: the one on the earphone cable, or the phone's own microphone if the earphones have none. A little tape holds it in place. Set the loudness to 60 to 80 percent. |
+
+For every answered call the activity log records the call's audio route, the volumes, and
+which speaker the message really came out of (the phone has the last word on that). Share
+the log when a method fails and you want to know why.
+
 ## Things to know
 
-- **How the other person hears the message.** Android does not allow an ordinary app to put sound
-  straight into a phone call. AutoCaller puts the call on loudspeaker and plays the message at
-  full volume; the phone's own microphone carries it to the other side. Keep the phone in a quiet
-  room, lying face up, with nothing covering the speaker or microphone. How clear it sounds depends
-  on the phone model. If people cannot hear it well, try **Settings > How the message is played**.
+- Keep the phone in a quiet room while it is calling; whatever the microphone hears goes to
+  the other person together with the message.
 - **While AutoCaller is the default phone app**, ordinary incoming and outgoing calls use
   AutoCaller's simple call screen. Switch back at any time with **Setup > Change**.
 - **During a calling run**, an incoming call that arrives while a run call is in progress is

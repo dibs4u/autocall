@@ -15,10 +15,12 @@ import android.os.Looper;
 import android.os.PowerManager;
 import android.provider.Settings;
 import android.telecom.TelecomManager;
+import android.text.InputType;
 import android.view.Gravity;
 import android.view.View;
 import android.view.WindowManager;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.ProgressBar;
 import android.widget.ScrollView;
@@ -42,6 +44,7 @@ public class MainActivity extends Activity implements CampaignService.Listener {
     private Button startBtn;
     private Button stopBtn;
     private Button skipBtn;
+    private Button testBtn;
     private Button playBtn;
     private MediaPlayer preview;
     private boolean askedPermissionsOnce;
@@ -114,6 +117,8 @@ public class MainActivity extends Activity implements CampaignService.Listener {
         runButtons.addView(skipBtn, Ui.share(this, 8));
         runButtons.addView(stopBtn, Ui.share(this, 8));
         run.addView(runButtons, Ui.below(this, 12));
+        testBtn = Ui.secondary(this, "Test call to one number");
+        run.addView(testBtn, Ui.below(this, 8));
         body.addView(run);
 
         // ---- everything else
@@ -129,6 +134,8 @@ public class MainActivity extends Activity implements CampaignService.Listener {
         more2.addView(logBtn, Ui.share(this, 0));
         more2.addView(dialBtn, Ui.share(this, 8));
         body.addView(more2, Ui.below(this, 8));
+        body.addView(Ui.text(this, "AutoCaller version " + App.VERSION, 12, Ui.MUTED, false),
+                Ui.below(this, 14));
 
         importBtn.setOnClickListener(v -> {
             if (CampaignService.running) {
@@ -149,6 +156,7 @@ public class MainActivity extends Activity implements CampaignService.Listener {
         });
         playBtn.setOnClickListener(v -> togglePreview());
         startBtn.setOnClickListener(v -> startRun());
+        testBtn.setOnClickListener(v -> testCall());
         stopBtn.setOnClickListener(v -> {
             CampaignService svc = CampaignService.instance;
             if (svc != null) svc.requestStop("Stopped by you.");
@@ -442,31 +450,69 @@ public class MainActivity extends Activity implements CampaignService.Listener {
         } else {
             runStatus.setText(CampaignService.lastMessage.length() > 0
                     ? CampaignService.lastMessage : "Ready to start");
-            runDetail.setText("Keep the phone in a quiet place with its speaker and microphone"
-                    + " uncovered while it is calling.");
+            runDetail.setText("The message is played through: "
+                    + Util.playModeLabel(Prefs.getInt(this, Prefs.PLAY_STREAM, 0))
+                    + " (change in Settings).");
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
         Ui.enable(startBtn, !running);
+        Ui.enable(testBtn, !running);
         Ui.enable(stopBtn, running);
         Ui.enable(skipBtn, running && CampaignService.hasAttempt());
     }
 
-    private void startRun() {
-        if (CampaignService.running) return;
+    /** Checks everything a call needs and says what is missing. */
+    private boolean readyToCall() {
+        if (CampaignService.running) return false;
         if (!Util.isDefaultDialer(this)) {
             Ui.info(this, "One more step",
                     "First make AutoCaller the default phone app (Setup, at the top).");
-            return;
+            return false;
         }
         if (!Util.has(this, Util.P_CALL)) {
             Ui.info(this, "One more step", "First allow the Phone permission (Setup, at the top).");
-            return;
+            return false;
         }
         String path = Prefs.getString(this, Prefs.AUDIO_PATH, "");
         if (path.length() == 0 || !new File(path).exists()) {
             Ui.info(this, "No voice message", "Record the message people should hear first.");
-            return;
+            return false;
         }
+        return true;
+    }
+
+    /** The wired-earphones method needs earphones to be plugged in. */
+    private boolean earphonesReady() {
+        if (Prefs.getInt(this, Prefs.PLAY_STREAM, 0) == Prefs.MODE_WIRED
+                && !Util.wiredAudioConnected(this)) {
+            Ui.info(this, "Earphones are not plugged in", "The message is set to be played"
+                    + " through wired earphones, but none are connected. Plug them in, or choose"
+                    + " another method.");
+            return false;
+        }
+        return true;
+    }
+
+    /** Starts the calling run, or a single test call when a number is given. */
+    private void launch(String testNumber) {
+        stopPreview();
+        try {
+            Intent i = new Intent(this, CampaignService.class);
+            if (testNumber == null) {
+                i.setAction(CampaignService.ACTION_START);
+            } else {
+                i.setAction(CampaignService.ACTION_TEST);
+                i.putExtra(CampaignService.EXTRA_NUMBER, testNumber);
+            }
+            startService(i);
+        } catch (Exception e) {
+            Logx.err("start service", e);
+            Ui.toast(this, "Could not start: " + e.getMessage());
+        }
+    }
+
+    private void startRun() {
+        if (!readyToCall() || !earphonesReady()) return;
         int[] cnt = Db.get(this).statusCounts();
         int toCall = cnt[Db.PENDING] + cnt[Db.RETRY];
         if (toCall == 0) {
@@ -483,19 +529,51 @@ public class MainActivity extends Activity implements CampaignService.Listener {
             return;
         }
         Ui.confirm(this, "Start calling?", toCall + " numbers will be called one after another"
-                        + " from this phone's SIM. When someone answers, your message plays on"
-                        + " the loudspeaker and the call then ends.\n\nPut the phone down in a"
-                        + " quiet place and do not cover it.",
-                "Start", () -> {
-                    stopPreview();
-                    try {
-                        startService(new Intent(this, CampaignService.class)
-                                .setAction(CampaignService.ACTION_START));
-                    } catch (Exception e) {
-                        Logx.err("start service", e);
-                        Ui.toast(this, "Could not start: " + e.getMessage());
+                        + " from this phone's SIM. When someone answers, your message is played"
+                        + " and the call then ends.\n\nMessage method: "
+                        + Util.playModeLabel(Prefs.getInt(this, Prefs.PLAY_STREAM, 0))
+                        + ".\n\nMake a test call first if you have not checked that people can"
+                        + " hear the message from this phone.",
+                "Start", () -> launch(null));
+    }
+
+    /** One call to a number the user types in, to hear how the message arrives. */
+    private void testCall() {
+        if (!readyToCall()) return;
+        final EditText input = new EditText(this);
+        input.setInputType(InputType.TYPE_CLASS_PHONE);
+        input.setSingleLine(true);
+        input.setText(Prefs.getString(this, Prefs.TEST_NUMBER, ""));
+        LinearLayout box = Ui.col(this);
+        int p = Ui.dp(this, 20);
+        box.setPadding(p, Ui.dp(this, 8), p, 0);
+        box.addView(Ui.text(this, "One call is made to this number and the message is played when"
+                + " it is answered. Use a second phone that you can listen to, in another room.",
+                13, Ui.MUTED, false));
+        box.addView(input, Ui.below(this, 8));
+        // The method can be changed right here, to try one after another quickly.
+        final Button methodBtn = Ui.secondary(this, "Method: "
+                + Util.playModeLabel(Prefs.getInt(this, Prefs.PLAY_STREAM, 0)));
+        methodBtn.setOnClickListener(v -> Ui.choose(this, "How the message is played",
+                Util.PLAY_MODES, Prefs.getInt(this, Prefs.PLAY_STREAM, 0), index -> {
+                    Prefs.putInt(this, Prefs.PLAY_STREAM, index);
+                    methodBtn.setText("Method: " + Util.playModeLabel(index));
+                }));
+        box.addView(methodBtn, Ui.below(this, 10));
+        new AlertDialog.Builder(this)
+                .setTitle("Test call")
+                .setView(box)
+                .setPositiveButton("Call", (d, w) -> {
+                    String n = Csv.normalizeNumber(input.getText().toString());
+                    if (n == null) {
+                        Ui.toast(this, "That is not a valid phone number.");
+                        return;
                     }
-                });
+                    Prefs.putString(this, Prefs.TEST_NUMBER, n);
+                    if (earphonesReady()) launch(n);
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
     }
 
     // ---- help and log -------------------------------------------------------------------
@@ -507,16 +585,19 @@ public class MainActivity extends Activity implements CampaignService.Listener {
                         + "2. Import your numbers from a CSV file: one phone number per row; a"
                         + " name column is optional.\n"
                         + "3. Record the message people should hear.\n"
-                        + "4. Press Start. Each number is called in turn. When the person"
+                        + "4. Make a test call to a second phone and check that the message can"
+                        + " be heard there.\n"
+                        + "5. Press Start. Each number is called in turn. When the person"
                         + " answers, the message is played and the call ends. Every call is"
                         + " written to Reports.\n\n"
+                        + "If the other person hears nothing\n"
+                        + "Android does not let any app put sound straight into a phone call. The"
+                        + " message has to travel through a microphone, and many phones remove"
+                        + " the sound of their own loudspeaker from a call as echo. Open Settings"
+                        + " > How the message reaches the other person and try the other"
+                        + " methods with Test call. Wired earphones with an earbud held against"
+                        + " the microphone work on almost every phone.\n\n"
                         + "Good to know\n"
-                        + "• Android does not let any app put sound straight into a phone"
-                        + " call. The message is played from the loudspeaker and travels through"
-                        + " the phone's own microphone, so keep the phone in a quiet room, lying"
-                        + " face up, with nothing covering it.\n"
-                        + "• Try it on two or three of your own numbers first to hear how it"
-                        + " sounds from your phone.\n"
                         + "• While AutoCaller is the default phone app, ordinary calls open"
                         + " in AutoCaller's simple call screen. Switch back whenever you like:"
                         + " Setup > Change.\n"
@@ -542,7 +623,8 @@ public class MainActivity extends Activity implements CampaignService.Listener {
                         Intent i = new Intent(Intent.ACTION_SEND);
                         i.setType("text/plain");
                         i.putExtra(Intent.EXTRA_SUBJECT, "AutoCaller activity log");
-                        i.putExtra(Intent.EXTRA_TEXT, Build.MANUFACTURER + " " + Build.MODEL
+                        i.putExtra(Intent.EXTRA_TEXT, "AutoCaller " + App.VERSION + " on "
+                                + Build.MANUFACTURER + " " + Build.MODEL
                                 + ", Android " + Build.VERSION.RELEASE + "\n\n" + log);
                         startActivity(Intent.createChooser(i, "Share log"));
                     } catch (Exception e) {

@@ -10,12 +10,8 @@ import android.widget.LinearLayout;
 
 import java.util.List;
 
-/** Timing, retries, calling hours, SIM and playback options. */
+/** How the message is played, timing, retries, calling hours and SIM. */
 public class SettingsActivity extends Activity {
-
-    private static final String[] STREAMS = {
-            "Loudspeaker, media volume (recommended)",
-            "Loudspeaker, call volume"};
 
     private EditText gap;
     private EditText ring;
@@ -25,16 +21,47 @@ public class SettingsActivity extends Activity {
     private EditText retryWait;
     private EditText hourFrom;
     private EditText hourTo;
+    private EditText volume;
     private Button simBtn;
-    private Button streamBtn;
+    private Button modeBtn;
     private String simId = "";
-    private int stream;
+    private int mode;
 
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
         Ui.Screen s = Ui.screen(this, "Settings", true, true);
 
+        // ---- how the message reaches the other person
+        LinearLayout sound = Ui.card(this);
+        sound.addView(Ui.text(this, "How the message reaches the other person", 16, Ui.INK, true));
+        mode = Math.max(0, Math.min(Util.PLAY_MODES.length - 1,
+                Prefs.getInt(this, Prefs.PLAY_STREAM, 0)));
+        modeBtn = Ui.secondary(this, Util.playModeLabel(mode));
+        sound.addView(modeBtn, Ui.below(this, 10));
+        sound.addView(Ui.text(this, "Android does not let an app put sound straight into a phone"
+                + " call, so the message has to travel through a microphone. Many phones remove"
+                + " the sound of their own loudspeaker from a call as echo: the message then"
+                + " plays loudly, but the other person hears nothing. Which method works depends"
+                + " on the phone, so try them with “Test call” on the home screen.\n\n"
+                + "• Loudspeaker (media or call volume): the call and the message both use"
+                + " the loudspeaker.\n\n"
+                + "• Call on earpiece, message on loudspeaker, and the other way round:"
+                + " the message comes from a different speaker than the call, so the phone does"
+                + " not treat it as echo. Not every phone allows this.\n\n"
+                + "• Earpiece only: quiet, but some phones do not filter it out.\n\n"
+                + "• Wired earphones: plug in earphones and keep one earbud pressed against"
+                + " the microphone: the one on the earphone cable, or the phone's own microphone"
+                + " if the earphones have none. A little tape holds it in place. This works on"
+                + " almost every phone.", 13, Ui.MUTED, false), Ui.below(this, 10));
+        volume = field(sound, "Loudness of the message (10 to 100 percent)",
+                Prefs.getInt(this, Prefs.VOLUME_PCT, Prefs.DEF_VOLUME_PCT));
+        sound.addView(Ui.text(this, "Keep 100 for the loudspeaker and earpiece. With earphones"
+                + " on the microphone, 60 to 80 usually sounds clearer.", 13, Ui.MUTED, false),
+                Ui.below(this, 4));
+        s.body.addView(sound);
+
+        // ---- timing
         LinearLayout timing = Ui.card(this);
         timing.addView(Ui.text(this, "Timing", 16, Ui.INK, true));
         gap = field(timing, "Pause between two calls (seconds)",
@@ -47,6 +74,7 @@ public class SettingsActivity extends Activity {
                 Prefs.getInt(this, Prefs.REPEAT, Prefs.DEF_REPEAT));
         s.body.addView(timing);
 
+        // ---- retries
         LinearLayout retry = Ui.card(this);
         retry.addView(Ui.text(this, "Unanswered numbers", 16, Ui.INK, true));
         retries = field(retry, "Try again this many times (0 = do not retry)",
@@ -55,6 +83,7 @@ public class SettingsActivity extends Activity {
                 Prefs.getInt(this, Prefs.RETRY_WAIT_MIN, Prefs.DEF_RETRY_WAIT_MIN));
         s.body.addView(retry);
 
+        // ---- calling hours
         LinearLayout hours = Ui.card(this);
         hours.addView(Ui.text(this, "Calling hours", 16, Ui.INK, true));
         hours.addView(Ui.text(this, "Calls are only started between these hours (24-hour clock)."
@@ -65,31 +94,23 @@ public class SettingsActivity extends Activity {
                 Prefs.getInt(this, Prefs.HOUR_TO, Prefs.DEF_HOUR_TO));
         s.body.addView(hours);
 
+        // ---- SIM
         LinearLayout phone = Ui.card(this);
-        phone.addView(Ui.text(this, "Phone", 16, Ui.INK, true));
-        phone.addView(Ui.text(this, "SIM used for the calls", 13, Ui.MUTED, false),
-                Ui.below(this, 10));
+        phone.addView(Ui.text(this, "SIM used for the calls", 16, Ui.INK, true));
         simId = Prefs.getString(this, Prefs.SIM_ID, "");
         simBtn = Ui.secondary(this, Util.simLabelFor(this, simId));
-        phone.addView(simBtn, Ui.below(this, 4));
-        phone.addView(Ui.text(this, "How the message is played", 13, Ui.MUTED, false),
-                Ui.below(this, 12));
-        stream = Prefs.getInt(this, Prefs.PLAY_STREAM, 0) == 1 ? 1 : 0;
-        streamBtn = Ui.secondary(this, STREAMS[stream]);
-        phone.addView(streamBtn, Ui.below(this, 4));
-        phone.addView(Ui.text(this, "If people cannot hear the message clearly on your phone,"
-                + " try the other option.", 13, Ui.MUTED, false), Ui.below(this, 6));
+        phone.addView(simBtn, Ui.below(this, 10));
         s.body.addView(phone);
 
         Button save = Ui.primary(this, "Save");
         s.body.addView(save, Ui.lp(Ui.MATCH, Ui.WRAP));
 
-        simBtn.setOnClickListener(v -> chooseSim());
-        streamBtn.setOnClickListener(v -> Ui.choose(this, "How the message is played", STREAMS,
-                stream, index -> {
-                    stream = index;
-                    streamBtn.setText(STREAMS[index]);
+        modeBtn.setOnClickListener(v -> Ui.choose(this, "How the message is played",
+                Util.PLAY_MODES, mode, index -> {
+                    mode = index;
+                    modeBtn.setText(Util.playModeLabel(index));
                 }));
+        simBtn.setOnClickListener(v -> chooseSim());
         save.setOnClickListener(v -> save());
     }
 
@@ -136,6 +157,8 @@ public class SettingsActivity extends Activity {
 
     private void save() {
         Prefs.sp(this).edit()
+                .putInt(Prefs.PLAY_STREAM, mode)
+                .putInt(Prefs.VOLUME_PCT, read(volume, Prefs.DEF_VOLUME_PCT, 10, 100))
                 .putInt(Prefs.GAP_SEC, read(gap, Prefs.DEF_GAP_SEC, 2, 600))
                 .putInt(Prefs.RING_SEC, read(ring, Prefs.DEF_RING_SEC, 10, 90))
                 .putInt(Prefs.ANSWER_DELAY_MS, read(delay, Prefs.DEF_ANSWER_DELAY_MS, 0, 10000))
@@ -145,7 +168,6 @@ public class SettingsActivity extends Activity {
                 .putInt(Prefs.HOUR_FROM, read(hourFrom, Prefs.DEF_HOUR_FROM, 0, 24))
                 .putInt(Prefs.HOUR_TO, read(hourTo, Prefs.DEF_HOUR_TO, 0, 24))
                 .putString(Prefs.SIM_ID, simId)
-                .putInt(Prefs.PLAY_STREAM, stream)
                 .apply();
         Ui.toast(this, "Settings saved.");
         finish();

@@ -3,6 +3,8 @@ package com.autocaller.app;
 import android.app.role.RoleManager;
 import android.content.Context;
 import android.content.pm.PackageManager;
+import android.media.AudioDeviceInfo;
+import android.media.AudioManager;
 import android.os.Build;
 import android.telecom.PhoneAccount;
 import android.telecom.PhoneAccountHandle;
@@ -86,6 +88,82 @@ final class Util {
             if (id.equals(l.get(i).getId())) return simLabel(c, l.get(i), i);
         }
         return "Phone default";
+    }
+
+    // ---- how the message is played -----------------------------------------------------------
+
+    /** Labels for the Prefs.MODE_ values, in the same order. */
+    static final String[] PLAY_MODES = {
+            "Loudspeaker, media volume",
+            "Loudspeaker, call volume",
+            "Call on earpiece, message on loudspeaker",
+            "Call on loudspeaker, message on earpiece",
+            "Earpiece only",
+            "Wired earphones or audio cable"};
+
+    static String playModeLabel(int mode) {
+        return mode >= 0 && mode < PLAY_MODES.length ? PLAY_MODES[mode] : PLAY_MODES[0];
+    }
+
+    /** True for the methods that keep the call itself on the loudspeaker. */
+    static boolean callOnSpeaker(int mode) {
+        return mode == Prefs.MODE_SPEAKER_MEDIA || mode == Prefs.MODE_SPEAKER_CALL
+                || mode == Prefs.MODE_SPEAKER_CALL_EARPIECE_MSG;
+    }
+
+    /** The phone's own output of the given AudioDeviceInfo type, or null if it has none. */
+    static AudioDeviceInfo outputDevice(Context c, int type) {
+        try {
+            AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
+            for (AudioDeviceInfo d : am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                if (d.getType() == type) return d;
+            }
+        } catch (Exception e) {
+            Logx.err("outputDevice", e);
+        }
+        return null;
+    }
+
+    static String deviceName(int type) {
+        switch (type) {
+            case AudioDeviceInfo.TYPE_BUILTIN_EARPIECE:
+                return "earpiece";
+            case AudioDeviceInfo.TYPE_BUILTIN_SPEAKER:
+                return "loudspeaker";
+            case AudioDeviceInfo.TYPE_WIRED_HEADSET:
+                return "wired headset";
+            case AudioDeviceInfo.TYPE_WIRED_HEADPHONES:
+                return "wired headphones";
+            case AudioDeviceInfo.TYPE_BLUETOOTH_SCO:
+                return "bluetooth (call)";
+            case AudioDeviceInfo.TYPE_BLUETOOTH_A2DP:
+                return "bluetooth (music)";
+            case AudioDeviceInfo.TYPE_USB_HEADSET:
+            case AudioDeviceInfo.TYPE_USB_DEVICE:
+                return "usb audio";
+            case AudioDeviceInfo.TYPE_TELEPHONY:
+                return "telephony";
+            default:
+                return "type " + type;
+        }
+    }
+
+    /** True if wired or USB earphones (or an audio cable) are plugged in. */
+    static boolean wiredAudioConnected(Context c) {
+        try {
+            AudioManager am = (AudioManager) c.getSystemService(Context.AUDIO_SERVICE);
+            for (AudioDeviceInfo d : am.getDevices(AudioManager.GET_DEVICES_OUTPUTS)) {
+                int t = d.getType();
+                if (t == AudioDeviceInfo.TYPE_WIRED_HEADSET || t == AudioDeviceInfo.TYPE_WIRED_HEADPHONES
+                        || t == AudioDeviceInfo.TYPE_USB_HEADSET || t == AudioDeviceInfo.TYPE_USB_DEVICE
+                        || t == AudioDeviceInfo.TYPE_LINE_ANALOG) {
+                    return true;
+                }
+            }
+        } catch (Exception e) {
+            Logx.err("wiredAudioConnected", e);
+        }
+        return false;
     }
 
     // ---- formatting ---------------------------------------------------------------------

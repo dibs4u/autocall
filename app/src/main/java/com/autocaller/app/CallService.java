@@ -105,8 +105,8 @@ public class CallService extends InCallService {
     @Override
     public void onCallAudioStateChanged(CallAudioState audioState) {
         super.onCallAudioStateChanged(audioState);
-        // The message is carried to the other side by the loudspeaker, so keep it on.
-        if (CampaignService.isAnswered()) forceSpeaker();
+        // Keep the call on the output that was chosen for playing the message.
+        CampaignService.keepRoute();
         Listener l = listener;
         if (l != null) l.onCallsChanged();
     }
@@ -248,18 +248,60 @@ public class CallService extends InCallService {
         return best;
     }
 
-    /** Switches the call to the loudspeaker and makes sure the microphone is not muted. */
-    static void forceSpeaker() {
+    /**
+     * Puts the call on the output used by the chosen playback method (a Prefs.MODE_ value)
+     * and makes sure the microphone is not muted, because the microphone is what carries
+     * the message to the other person.
+     */
+    static void applyRoute(int mode) {
         CallService s = instance;
         if (s == null) return;
         try {
             CallAudioState st = s.getCallAudioState();
-            if (st != null && st.isMuted()) s.setMuted(false);
-            if (st == null || st.getRoute() != CallAudioState.ROUTE_SPEAKER) {
-                s.setAudioRoute(CallAudioState.ROUTE_SPEAKER);
+            if (st == null || st.isMuted()) s.setMuted(false);
+            int mask = st == null ? 0 : st.getSupportedRouteMask();
+            int want;
+            if (mode == Prefs.MODE_WIRED) {
+                want = (mask & CallAudioState.ROUTE_WIRED_HEADSET) != 0
+                        ? CallAudioState.ROUTE_WIRED_HEADSET : CallAudioState.ROUTE_WIRED_OR_EARPIECE;
+            } else if (Util.callOnSpeaker(mode)) {
+                want = CallAudioState.ROUTE_SPEAKER;
+            } else {
+                want = (mask & CallAudioState.ROUTE_EARPIECE) != 0
+                        ? CallAudioState.ROUTE_EARPIECE : CallAudioState.ROUTE_WIRED_OR_EARPIECE;
             }
+            if (st == null || (st.getRoute() & want) == 0) s.setAudioRoute(want);
         } catch (Exception e) {
-            Logx.err("forceSpeaker", e);
+            Logx.err("applyRoute", e);
+        }
+    }
+
+    /** Short description of the call's audio state, for the activity log. */
+    static String audioSummary() {
+        CallService s = instance;
+        if (s == null) return "callAudio=none";
+        try {
+            CallAudioState st = s.getCallAudioState();
+            if (st == null) return "callAudio=unknown";
+            return "route=" + routeName(st.getRoute()) + " available=" + st.getSupportedRouteMask()
+                    + " micMuted=" + st.isMuted();
+        } catch (Exception e) {
+            return "callAudio=error";
+        }
+    }
+
+    private static String routeName(int route) {
+        switch (route) {
+            case CallAudioState.ROUTE_EARPIECE:
+                return "earpiece";
+            case CallAudioState.ROUTE_BLUETOOTH:
+                return "bluetooth";
+            case CallAudioState.ROUTE_WIRED_HEADSET:
+                return "wired";
+            case CallAudioState.ROUTE_SPEAKER:
+                return "speaker";
+            default:
+                return String.valueOf(route);
         }
     }
 }
