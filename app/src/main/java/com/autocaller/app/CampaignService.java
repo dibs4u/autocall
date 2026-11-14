@@ -647,8 +647,10 @@ public class CampaignService extends Service {
                                 : AudioAttributes.USAGE_MEDIA)
                         .setContentType(AudioAttributes.CONTENT_TYPE_SPEECH)
                         .build());
+                mp.setDataSource(audioPath);
                 // Two of the methods play the message from a different speaker than the one
                 // the call uses, so that the phone does not treat it as echo of the call.
+                // (The player only accepts an output choice once it has its file.)
                 if (Build.VERSION.SDK_INT >= 28) {
                     int type = playMode == Prefs.MODE_EARPIECE_CALL_SPEAKER_MSG
                             ? AudioDeviceInfo.TYPE_BUILTIN_SPEAKER
@@ -661,7 +663,6 @@ public class CampaignService extends Service {
                                 + ": " + (accepted ? "accepted" : "not possible"));
                     }
                 }
-                mp.setDataSource(audioPath);
                 mp.prepare();
                 final int length = Math.max(mp.getDuration(), 0);
                 if (length > 0) a.audioTotalMs = length * repeat;
