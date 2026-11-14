@@ -99,7 +99,8 @@ final class Util {
             "Call on earpiece, message on loudspeaker",
             "Call on loudspeaker, message on earpiece",
             "Earpiece only",
-            "Wired earphones or audio cable"};
+            "Wired earphones or audio cable",
+            "Bluetooth headphones"};
 
     static String playModeLabel(int mode) {
         return mode >= 0 && mode < PLAY_MODES.length ? PLAY_MODES[mode] : PLAY_MODES[0];

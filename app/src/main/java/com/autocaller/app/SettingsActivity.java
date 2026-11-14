@@ -53,7 +53,10 @@ public class SettingsActivity extends Activity {
                 + "• Wired earphones: plug in earphones and keep one earbud pressed against"
                 + " the microphone: the one on the earphone cable, or the phone's own microphone"
                 + " if the earphones have none. A little tape holds it in place. This works on"
-                + " almost every phone.", 13, Ui.MUTED, false), Ui.below(this, 10));
+                + " almost every phone.\n\n"
+                + "\u2022 Bluetooth headphones: connect them first. The call and the message"
+                + " go to the headphones; hold the microphone side of the headphones against"
+                + " one of its speakers. Many headphones filter their own sound, so test it.", 13, Ui.MUTED, false), Ui.below(this, 10));
         volume = field(sound, "Loudness of the message (10 to 100 percent)",
                 Prefs.getInt(this, Prefs.VOLUME_PCT, Prefs.DEF_VOLUME_PCT));
         sound.addView(Ui.text(this, "Keep 100 for the loudspeaker and earpiece. With earphones"

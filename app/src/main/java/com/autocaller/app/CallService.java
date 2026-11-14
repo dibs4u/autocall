@@ -261,7 +261,10 @@ public class CallService extends InCallService {
             if (st == null || st.isMuted()) s.setMuted(false);
             int mask = st == null ? 0 : st.getSupportedRouteMask();
             int want;
-            if (mode == Prefs.MODE_WIRED) {
+            if (mode == Prefs.MODE_BLUETOOTH) {
+                want = (mask & CallAudioState.ROUTE_BLUETOOTH) != 0
+                        ? CallAudioState.ROUTE_BLUETOOTH : CallAudioState.ROUTE_WIRED_OR_EARPIECE;
+            } else if (mode == Prefs.MODE_WIRED) {
                 want = (mask & CallAudioState.ROUTE_WIRED_HEADSET) != 0
                         ? CallAudioState.ROUTE_WIRED_HEADSET : CallAudioState.ROUTE_WIRED_OR_EARPIECE;
             } else if (Util.callOnSpeaker(mode)) {
