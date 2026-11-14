@@ -1,0 +1,86 @@
+name: Build APK
+
+# Builds the app every time something is pushed, and puts the result in two places:
+#   1. Releases  -> "AutoCaller APK (latest build)"  -> AutoCaller.apk   (download this on the phone)
+#   2. the "build-output" branch: the APK, the full build log and a status file
+
+on:
+  push:
+    branches-ignore:
+      - build-output
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Check out the project
+        uses: actions/checkout@v4
+
+      # If the project was uploaded as one zip file (AutoCaller.zip) instead of as
+      # separate files, unpack it here so the rest of the build is the same.
+      - name: Unpack AutoCaller.zip if it was uploaded
+        run: |
+          if [ -f AutoCaller.zip ]; then
+            unzip -o -q AutoCaller.zip -d .
+            echo "Unpacked AutoCaller.zip"
+          fi
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Build the release APK
+        run: |
+          chmod +x ./gradlew
+          set -o pipefail
+          ./gradlew assembleRelease --no-daemon --stacktrace 2>&1 | tee build-log.txt
+
+      - name: Collect the result
+        if: always()
+        run: |
+          mkdir -p out
+          cp build-log.txt out/build-log.txt 2>/dev/null || echo "no build log was produced" > out/build-log.txt
+          if ls app/build/outputs/apk/release/*.apk >/dev/null 2>&1; then
+            cp app/build/outputs/apk/release/*.apk out/AutoCaller.apk
+            echo "success" > out/status.txt
+          else
+            echo "failed" > out/status.txt
+          fi
+          echo "${GITHUB_SHA}" > out/commit.txt
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > out/built-at.txt
+
+      - name: Upload the APK as a workflow artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: AutoCaller-apk
+          path: out/AutoCaller.apk
+
+      - name: Publish the result to the build-output branch
+        if: always()
+        run: |
+          cd out
+          git init -q -b build-output
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Build output for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" build-output
+
+      - name: Publish the APK under Releases
+        if: success()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release delete latest --yes --cleanup-tag 2>/dev/null || true
+          gh release create latest out/AutoCaller.apk \
+            --title "AutoCaller APK (latest build)" \
+            --notes "Built from commit ${GITHUB_SHA}. Download AutoCaller.apk on the phone and open it to install." \
+            --target "${GITHUB_SHA}"

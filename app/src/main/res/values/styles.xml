@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Screens draw their own title bar, so the theme has no action bar. -->
+    <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/primary</item>
+        <item name="android:colorPrimaryDark">@color/primary_dark</item>
+        <item name="android:colorAccent">@color/primary</item>
+        <item name="android:windowBackground">@color/page</item>
+        <item name="android:statusBarColor">@color/primary_dark</item>
+    </style>
+
+    <!-- Dark theme for the call screen. -->
+    <style name="CallTheme" parent="android:Theme.Material.NoActionBar">
+        <item name="android:colorAccent">@color/primary</item>
+        <item name="android:windowBackground">@color/call_background</item>
+        <item name="android:statusBarColor">@color/call_background</item>
+        <item name="android:navigationBarColor">@color/call_background</item>
+    </style>
+</resources>

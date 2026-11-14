@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+android {
+    namespace 'com.autocaller.app'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.autocaller.app"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    // A fixed signing key kept in the project, so every build can be installed over the
+    // previous one without uninstalling (which would delete the reports).
+    // Replace it with your own key before publishing the app anywhere.
+    signingConfigs {
+        release {
+            storeFile file('release.keystore')
+            storePassword 'autocaller'
+            keyAlias 'autocaller'
+            keyPassword 'autocaller'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

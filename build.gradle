@@ -1,0 +1,5 @@
+// Top-level build file. The app module has no library dependencies at all:
+// it uses only the Android framework, so the build needs just the Android Gradle plugin.
+plugins {
+    id 'com.android.application' version '8.7.3' apply false
+}
