@@ -88,7 +88,8 @@ sound as echo, so it does not remove sound coming from another phone.
 2. Lay the two phones side by side, B's loudspeaker next to A's microphone. Use a quiet room.
 3. Press **Start listening** on B, then **Start** on A.
 4. B's screen shows `[TONE]` while it hears ringing and `[VOICE]` when someone speaks. If the
-   voice is not picked up, lower the sensitivity value. If background noise sets it off, raise it.
+   voice is not picked up, lower the sensitivity value in Settings. If background noise sets it
+   off, raise it.
 5. After each message B rests (default 8 s), then waits for the next call to ring.
 
 Limits: a number with a caller tune instead of a ring tone may not be detected (turn off "Play
@@ -166,9 +167,11 @@ app/src/main/java/com/autocaller/app/
   SettingsActivity  timing, hang-up timer, retries, calling hours, SIM
   Db, Csv, Prefs, Util, Ui, Logx   storage and helpers
 player/src/main/java/com/autocaller/player/
-  MainActivity      AutoCaller Player screen: message, sensitivity, Start listening
+  MainActivity      home screen: setup checks, message, Start / Stop listening
+  SettingsActivity  sensitivity, timing, ringing check
   ListenService     listens through the microphone and plays the message (foreground service)
   Detector          ringing-tone and voice detection (plain Java)
+  Ui, Prefs, Plog   same screen helpers as AutoCaller, settings, activity log
 tools/DetectorTest.java  runs Detector on synthetic ringing and voice audio on a PC
 ```
 
