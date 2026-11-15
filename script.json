@@ -1,0 +1,12 @@
+[
+ {"id":"s01","text":"Meet AutoCaller. Automatic voice message calls, using two Android phones."},
+ {"id":"s02","text":"Here's the problem. Android doesn't let apps play audio straight into a phone call. If the calling phone plays your message itself, it's removed as echo, and the other person hears nothing."},
+ {"id":"s03","text":"AutoCaller solves this with a second phone. Phone one dials your list, with the call on speaker. Phone two listens. When someone answers and says hello, it plays your recorded message, right into phone one's microphone."},
+ {"id":"s04","text":"Here's the real setup. Two phones, side by side, on a desk."},
+ {"id":"s05","text":"On phone two, AutoCaller Player holds your recorded message. Tap Start listening, and it waits for the call to ring."},
+ {"id":"s06","text":"On phone one, AutoCaller manages your number list, your calling hours, and a hang-up timer, so every call ends right after the message."},
+ {"id":"s07","text":"Press Start, and AutoCaller dials the first number. Phone two hears the ringing, then the person's hello, and plays the message. When the timer runs out, the call ends, and the next number is dialed."},
+ {"id":"s08","text":"Here's a live test. The receiving phone rings, the call is answered, and the message comes through."},
+ {"id":"s09","text":"Every call is logged with its result: answered, busy, or not reached. And you can export the report as a spreadsheet at any time."},
+ {"id":"s10","text":"AutoCaller. Set it up once, press Start, and let your phones do the calling."}
+]

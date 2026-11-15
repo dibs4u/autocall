@@ -1,0 +1,35 @@
+name: Voice-over (temporary)
+on:
+  push:
+    branches: [tmp-voiceover]
+permissions:
+  contents: write
+jobs:
+  tts:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Kokoro
+        run: pip install kokoro-onnx soundfile
+      - name: Download the voice model
+        run: |
+          curl -sSL -o kokoro-v1.0.onnx https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/kokoro-v1.0.onnx
+          curl -sSL -o voices-v1.0.bin https://github.com/thewh1teagle/kokoro-onnx/releases/download/model-files-v1.0/voices-v1.0.bin
+      - name: Speak the script
+        run: |
+          mkdir -p out
+          python tts.py af_heart 2>&1 | tee out/log.txt
+      - name: Publish to tmp-voiceover-out
+        if: always()
+        run: |
+          cd out
+          git init -q -b tmp-voiceover-out
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "voice-over for ${GITHUB_SHA}"
+          git push -f "https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git" tmp-voiceover-out
