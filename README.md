@@ -61,6 +61,41 @@ Sita,+91 98123 45678
   saving the CSV.
 - `.xlsx` files are not read: use **Save as > CSV**.
 
+## Two-phone setup (version 1.4, recommended)
+
+From 1.4 the calling phone does not play the message itself. A second phone plays it.
+
+| Phone | App | Job |
+| --- | --- | --- |
+| Phone A | `AutoCaller.apk` | Calls the numbers one by one, with the call on the loudspeaker. |
+| Phone B | `AutoCallerPlayer.apk` | Listens to Phone A's loudspeaker. When it has heard the ringing and then a voice ("hello"), it plays the message from its own loudspeaker. |
+
+Phone A's microphone carries B's sound into the call. Phone A removes only its *own* speaker
+sound as echo, so it does not remove sound coming from another phone.
+
+**Phone A (AutoCaller)**
+1. Settings > How the message reaches the other person: **Second phone plays the message**.
+   This is set automatically when you update to 1.4.
+2. Settings > **Hang-up timer**:
+   - *Length of the message on the second phone*: the length that AutoCaller Player shows.
+   - *Hang up this many seconds after the message ends* (default 5). The call is ended at
+     answer + message length + this value. B starts about 1 to 2 s after the "hello", so keep
+     it at 4 s or more.
+3. No message has to be recorded on Phone A.
+
+**Phone B (AutoCaller Player)**
+1. Choose an audio file or record the message.
+2. Lay the two phones side by side, B's loudspeaker next to A's microphone. Use a quiet room.
+3. Press **Start listening** on B, then **Start** on A.
+4. B's screen shows `[TONE]` while it hears ringing and `[VOICE]` when someone speaks. If the
+   voice is not picked up, lower the sensitivity value. If background noise sets it off, raise it.
+5. After each message B rests (default 8 s), then waits for the next call to ring.
+
+Limits: a number with a caller tune instead of a ring tone may not be detected (turn off "Play
+only after the call has rung" on B, at the cost of false starts). Voicemail greetings count as a
+person. If the person says nothing after answering, B does not play, and A still hangs up when
+the timer runs out.
+
 ## If the other person cannot hear the message
 
 Android does not allow an ordinary app to put sound straight into a phone call, so the message
@@ -128,8 +163,13 @@ app/src/main/java/com/autocaller/app/
   ContactsActivity  number list and CSV import
   RecordActivity    voice message recorder
   ReportsActivity   reports and CSV export
-  SettingsActivity  timing, retries, calling hours, SIM
+  SettingsActivity  timing, hang-up timer, retries, calling hours, SIM
   Db, Csv, Prefs, Util, Ui, Logx   storage and helpers
+player/src/main/java/com/autocaller/player/
+  MainActivity      AutoCaller Player screen: message, sensitivity, Start listening
+  ListenService     listens through the microphone and plays the message (foreground service)
+  Detector          ringing-tone and voice detection (plain Java)
+tools/DetectorTest.java  runs Detector on synthetic ringing and voice audio on a PC
 ```
 
 The app uses only the Android framework (no libraries), and builds its screens in code.

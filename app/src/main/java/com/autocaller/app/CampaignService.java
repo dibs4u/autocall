@@ -95,6 +95,7 @@ public class CampaignService extends Service {
     static String lastMessage = "";
     static int sessionCalls;
     static int sessionAnswered;
+    static long hangUpAt;          // second-phone mode: when the answered call will be ended
 
     private final Handler h = new Handler(Looper.getMainLooper());
     private Db db;
@@ -119,6 +120,8 @@ public class CampaignService extends Service {
     private int playMode;
     private int volumePct;
     private int audioMs;
+    private long hangUpAfterMs;    // how long the call stays open after the message ends
+    private boolean secondPhone;   // another phone plays the message; this one only calls
     private String testNumber;   // not null while a single test call is being made
     private boolean testPlaced;
     private String audioPath = "";
@@ -201,6 +204,10 @@ public class CampaignService extends Service {
             case PH_ANSWERED:
                 return "Answered – starting the message";
             case PH_PLAYING:
+                if (instance != null && instance.secondPhone) {
+                    return "Answered · second phone plays the message · hang up in "
+                            + Util.secs(Math.max(0, hangUpAt - now)) + " s";
+                }
                 return "Playing the message to " + curNumber;
             case PH_GAP:
                 return "Next call in " + Util.secs(Math.max(0, nextDialAt - now)) + " s";
@@ -229,19 +236,23 @@ public class CampaignService extends Service {
         retryWaitMs = clamp(Prefs.getInt(this, Prefs.RETRY_WAIT_MIN, Prefs.DEF_RETRY_WAIT_MIN), 0, 240) * 60000L;
         hourFrom = clamp(Prefs.getInt(this, Prefs.HOUR_FROM, Prefs.DEF_HOUR_FROM), 0, 24);
         hourTo = clamp(Prefs.getInt(this, Prefs.HOUR_TO, Prefs.DEF_HOUR_TO), 0, 24);
-        playMode = clamp(Prefs.getInt(this, Prefs.PLAY_STREAM, 0), 0, Util.PLAY_MODES.length - 1);
+        playMode = clamp(Prefs.playMode(this), 0, Util.PLAY_MODES.length - 1);
         volumePct = clamp(Prefs.getInt(this, Prefs.VOLUME_PCT, Prefs.DEF_VOLUME_PCT), 10, 100);
         audioPath = Prefs.getString(this, Prefs.AUDIO_PATH, "");
         audioMs = Math.max(0, Prefs.getInt(this, Prefs.AUDIO_MS, 0));
         simId = Prefs.getString(this, Prefs.SIM_ID, "");
         simLabel = Util.simLabelFor(this, simId);
+        secondPhone = Util.secondPhone(playMode);
+        hangUpAfterMs = clamp(Prefs.getInt(this, Prefs.HANGUP_AFTER_SEC,
+                Prefs.DEF_HANGUP_AFTER_SEC), 0, 120) * 1000L;
+        if (secondPhone) audioMs = clamp(Prefs.messageSec(this), 1, 600) * 1000;
 
         String problem = null;
         if (!Util.isDefaultDialer(this)) {
             problem = "AutoCaller is not the default phone app.";
         } else if (!Util.has(this, Util.P_CALL)) {
             problem = "The Phone permission is missing.";
-        } else if (audioPath.length() == 0 || !new File(audioPath).exists()) {
+        } else if (!secondPhone && (audioPath.length() == 0 || !new File(audioPath).exists())) {
             problem = "There is no voice message yet.";
         }
         if (problem != null) {
@@ -264,6 +275,7 @@ public class CampaignService extends Service {
         Logx.log("Run started: gap=" + gapMs + "ms ringLimit=" + ringMs + "ms repeat=" + repeat
                 + " retries=" + retries + " sim=" + simLabel
                 + " method=[" + Util.playModeLabel(playMode) + "] volume=" + volumePct + "%"
+                + " message=" + audioMs + "ms hangUpAfter=" + hangUpAfterMs + "ms"
                 + (testNumber != null ? " TEST CALL" : "")
                 + " phone=" + Build.MANUFACTURER + " " + Build.MODEL
                 + " Android " + Build.VERSION.RELEASE);
@@ -427,7 +439,7 @@ public class CampaignService extends Service {
         a.list = c.list == null ? "" : c.list;
         a.attemptNo = c.attempts + 1;
         a.dialTime = System.currentTimeMillis();
-        a.audioTotalMs = audioMs * repeat;
+        a.audioTotalMs = secondPhone ? audioMs : audioMs * repeat;
         cur = a;
         curNumber = a.number;
         curName = a.name;
@@ -444,6 +456,8 @@ public class CampaignService extends Service {
             if (Util.callOnSpeaker(playMode)) {
                 extras.putBoolean(TelecomManager.EXTRA_START_CALL_WITH_SPEAKERPHONE, true);
             }
+            // The second phone has to hear the ringing and the "hello" from this loudspeaker.
+            if (secondPhone) raiseVolumes();
             PhoneAccountHandle sim = Util.findSim(this, simId);
             if (sim != null) extras.putParcelable(TelecomManager.EXTRA_PHONE_ACCOUNT_HANDLE, sim);
             Logx.log("Dialling " + a.number + " (attempt " + a.attemptNo + ")");
@@ -552,11 +566,22 @@ public class CampaignService extends Service {
                     sessionAnswered++;
                     Logx.log("Answered: " + a.number + " after "
                             + Util.secs(a.answerTime - a.dialTime) + " s");
-                    setPhase(PH_ANSWERED);
                     CallService.applyRoute(playMode);
                     logAudio("answer");
-                    h.postDelayed(startPlayback, answerDelayMs);
-                    h.postDelayed(maxCallWatchdog, answerDelayMs + a.audioTotalMs + 20000L);
+                    if (secondPhone) {
+                        // Nothing is played here. Keep the call open on the loudspeaker for
+                        // the length of the second phone's message, plus the hang-up timer.
+                        long keep = a.audioTotalMs + hangUpAfterMs;
+                        hangUpAt = a.answerTime + keep;
+                        setPhase(PH_PLAYING);
+                        h.postDelayed(secondPhoneDone, keep);
+                        h.postDelayed(maxCallWatchdog, keep + 20000L);
+                    } else {
+                        setPhase(PH_ANSWERED);
+                        h.postDelayed(startPlayback, answerDelayMs);
+                        h.postDelayed(maxCallWatchdog,
+                                answerDelayMs + a.audioTotalMs + hangUpAfterMs + 20000L);
+                    }
                 }
                 break;
             case Call.STATE_DISCONNECTED:
@@ -604,6 +629,20 @@ public class CampaignService extends Service {
         public void run() {
             Attempt a = cur;
             if (a != null && !a.finished && a.call != null) hangUp(a);
+        }
+    };
+
+    /** Second-phone mode: the message and the hang-up timer are over, so end the call. */
+    private final Runnable secondPhoneDone = new Runnable() {
+        @Override
+        public void run() {
+            Attempt a = cur;
+            if (a != null && !a.finished && a.call != null) {
+                a.audioDone = true;
+                a.audioMs = a.audioTotalMs;
+                Logx.log("Hang-up timer reached for " + a.number);
+                hangUp(a);
+            }
         }
     };
 
@@ -730,7 +769,7 @@ public class CampaignService extends Service {
             }
         }
         a.audioDone = true;
-        h.postDelayed(hangUpNow, 700);
+        h.postDelayed(hangUpNow, Math.max(700L, hangUpAfterMs));
     }
 
     /** Stops the player and works out how much of the message the person heard. */
@@ -903,9 +942,15 @@ public class CampaignService extends Service {
         h.removeCallbacks(startPlayback);
         h.removeCallbacks(hangUpNow);
         h.removeCallbacks(maxCallWatchdog);
+        h.removeCallbacks(secondPhoneDone);
         h.removeCallbacks(forceEnd);
         h.removeCallbacks(logRoutedDevice);
         stopPlayer(a);
+        if (secondPhone && a.answerTime > 0 && !a.audioDone) {
+            // The other person hung up first: count the part of the message they stayed for.
+            long stayed = System.currentTimeMillis() - a.answerTime;
+            a.audioMs = (int) Math.max(0, Math.min(stayed, a.audioTotalMs));
+        }
         if (a.call != null) {
             try {
                 a.call.unregisterCallback(callCallback);
@@ -962,7 +1007,12 @@ public class CampaignService extends Service {
         if (!running) return;
         if (testNumber != null) {
             String how;
-            if (result == Db.ANSWERED) {
+            if (result == Db.ANSWERED && secondPhone) {
+                how = a.audioDone ? "answered, and the call was kept open for the second phone's"
+                        + " message and then ended by the timer"
+                        : "answered, and the other person hung up after "
+                        + Util.secs(a.audioMs) + " of " + Util.secs(a.audioTotalMs) + " s";
+            } else if (result == Db.ANSWERED) {
                 how = a.audioDone ? "answered, and the message was played to the end"
                         : "answered, and " + Util.secs(a.audioMs) + " of "
                         + Util.secs(a.audioTotalMs) + " s of the message was played";

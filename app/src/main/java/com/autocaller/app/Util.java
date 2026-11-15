@@ -101,16 +101,22 @@ final class Util {
             "Earpiece only",
             "Wired earphones or audio cable",
             "Bluetooth headphones",
-            "Direct into the call (experimental)"};
+            "Direct into the call (experimental)",
+            "Second phone plays the message (AutoCaller Player)"};
 
     static String playModeLabel(int mode) {
         return mode >= 0 && mode < PLAY_MODES.length ? PLAY_MODES[mode] : PLAY_MODES[0];
     }
 
+    /** True when this phone only places the call and another phone plays the message. */
+    static boolean secondPhone(int mode) {
+        return mode == Prefs.MODE_SECOND_PHONE;
+    }
+
     /** True for the methods that keep the call itself on the loudspeaker. */
     static boolean callOnSpeaker(int mode) {
         return mode == Prefs.MODE_SPEAKER_MEDIA || mode == Prefs.MODE_SPEAKER_CALL
-                || mode == Prefs.MODE_SPEAKER_CALL_EARPIECE_MSG;
+                || mode == Prefs.MODE_SPEAKER_CALL_EARPIECE_MSG || mode == Prefs.MODE_SECOND_PHONE;
     }
 
     /** The phone's own output of the given AudioDeviceInfo type, or null if it has none. */

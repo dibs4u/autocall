@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "AutoCaller"
 include ':app'
+include ':player'

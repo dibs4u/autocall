@@ -389,6 +389,11 @@ public class MainActivity extends Activity implements CampaignService.Listener {
             audioInfo.setText("Ready · " + Util.dur(Prefs.getInt(this, Prefs.AUDIO_MS, 0))
                     + " long · " + Prefs.getString(this, Prefs.AUDIO_LABEL, "message")
                     + " · saved " + Util.dateTime(Prefs.getLong(this, Prefs.AUDIO_TIME, 0)));
+        } else if (Util.secondPhone(Prefs.playMode(this))) {
+            audioInfo.setText("The second phone (AutoCaller Player) plays the message. Calls stay"
+                    + " open " + Prefs.messageSec(this) + " s + "
+                    + Prefs.getInt(this, Prefs.HANGUP_AFTER_SEC, Prefs.DEF_HANGUP_AFTER_SEC)
+                    + " s after the answer (Settings > Hang-up timer).");
         } else {
             audioInfo.setText("No message yet. Record what people should hear when they pick up.");
         }
@@ -451,7 +456,7 @@ public class MainActivity extends Activity implements CampaignService.Listener {
             runStatus.setText(CampaignService.lastMessage.length() > 0
                     ? CampaignService.lastMessage : "Ready to start");
             runDetail.setText("The message is played through: "
-                    + Util.playModeLabel(Prefs.getInt(this, Prefs.PLAY_STREAM, 0))
+                    + Util.playModeLabel(Prefs.playMode(this))
                     + " (change in Settings).");
             getWindow().clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
         }
@@ -473,6 +478,7 @@ public class MainActivity extends Activity implements CampaignService.Listener {
             Ui.info(this, "One more step", "First allow the Phone permission (Setup, at the top).");
             return false;
         }
+        if (Util.secondPhone(Prefs.playMode(this))) return true; // the other phone has the message
         String path = Prefs.getString(this, Prefs.AUDIO_PATH, "");
         if (path.length() == 0 || !new File(path).exists()) {
             Ui.info(this, "No voice message", "Record the message people should hear first.");
@@ -483,7 +489,7 @@ public class MainActivity extends Activity implements CampaignService.Listener {
 
     /** The wired-earphones method needs earphones to be plugged in. */
     private boolean earphonesReady() {
-        if (Prefs.getInt(this, Prefs.PLAY_STREAM, 0) == Prefs.MODE_WIRED
+        if (Prefs.playMode(this) == Prefs.MODE_WIRED
                 && !Util.wiredAudioConnected(this)) {
             Ui.info(this, "Earphones are not plugged in", "The message is set to be played"
                     + " through wired earphones, but none are connected. Plug them in, or choose"
@@ -528,10 +534,16 @@ public class MainActivity extends Activity implements CampaignService.Listener {
                     + " calling hours (0 and 24 means no limit).");
             return;
         }
+        boolean two = Util.secondPhone(Prefs.playMode(this));
+        String what = two
+                ? " When someone answers, the call stays open for "
+                        + (Prefs.messageSec(this) + Prefs.getInt(this, Prefs.HANGUP_AFTER_SEC,
+                        Prefs.DEF_HANGUP_AFTER_SEC)) + " s while the second phone plays the"
+                        + " message, and then ends. Start listening on AutoCaller Player first."
+                : " When someone answers, your message is played and the call then ends.";
         Ui.confirm(this, "Start calling?", toCall + " numbers will be called one after another"
-                        + " from this phone's SIM. When someone answers, your message is played"
-                        + " and the call then ends.\n\nMessage method: "
-                        + Util.playModeLabel(Prefs.getInt(this, Prefs.PLAY_STREAM, 0))
+                        + " from this phone's SIM." + what + "\n\nMessage method: "
+                        + Util.playModeLabel(Prefs.playMode(this))
                         + ".\n\nMake a test call first if you have not checked that people can"
                         + " hear the message from this phone.",
                 "Start", () -> launch(null));
@@ -553,9 +565,9 @@ public class MainActivity extends Activity implements CampaignService.Listener {
         box.addView(input, Ui.below(this, 8));
         // The method can be changed right here, to try one after another quickly.
         final Button methodBtn = Ui.secondary(this, "Method: "
-                + Util.playModeLabel(Prefs.getInt(this, Prefs.PLAY_STREAM, 0)));
+                + Util.playModeLabel(Prefs.playMode(this)));
         methodBtn.setOnClickListener(v -> Ui.choose(this, "How the message is played",
-                Util.PLAY_MODES, Prefs.getInt(this, Prefs.PLAY_STREAM, 0), index -> {
+                Util.PLAY_MODES, Prefs.playMode(this), index -> {
                     Prefs.putInt(this, Prefs.PLAY_STREAM, index);
                     methodBtn.setText("Method: " + Util.playModeLabel(index));
                 }));

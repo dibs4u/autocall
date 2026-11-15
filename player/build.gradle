@@ -1,0 +1,45 @@
+plugins {
+    id 'com.android.application'
+}
+
+// AutoCaller Player: runs on the SECOND phone. It listens to the calling phone's
+// loudspeaker and plays the message when the person answers.
+android {
+    namespace 'com.autocaller.player'
+    compileSdk 34
+
+    defaultConfig {
+        applicationId "com.autocaller.player"
+        minSdk 26
+        targetSdk 34
+        versionCode 1
+        versionName "1.0"
+    }
+
+    // Same fixed key as the calling app, so updates install over the previous build.
+    signingConfigs {
+        release {
+            storeFile file('../app/release.keystore')
+            storePassword 'autocaller'
+            keyAlias 'autocaller'
+            keyPassword 'autocaller'
+        }
+    }
+
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.release
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
+    }
+
+    lint {
+        abortOnError false
+        checkReleaseBuilds false
+    }
+}

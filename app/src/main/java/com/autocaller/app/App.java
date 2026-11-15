@@ -8,7 +8,7 @@ import android.util.Log;
 public class App extends Application {
 
     /** Shown on the home screen; keep in step with versionName in app/build.gradle. */
-    static final String VERSION = "1.3";
+    static final String VERSION = "1.4";
 
     static final String CH_RUN = "campaign";
     static final String CH_CALLS = "calls";
@@ -18,6 +18,15 @@ public class App extends Application {
     public void onCreate() {
         super.onCreate();
         Logx.init(this);
+
+        // 1.4: this phone now only places the calls and a second phone plays the message.
+        // Switch existing installs over once; the old methods stay available in Settings.
+        if (!Prefs.sp(this).getBoolean("second_phone_default_set", false)) {
+            Prefs.sp(this).edit()
+                    .putInt(Prefs.PLAY_STREAM, Prefs.MODE_SECOND_PHONE)
+                    .putBoolean("second_phone_default_set", true)
+                    .apply();
+        }
 
         // Write crashes into the activity log so they can be looked at afterwards.
         final Thread.UncaughtExceptionHandler old = Thread.getDefaultUncaughtExceptionHandler();

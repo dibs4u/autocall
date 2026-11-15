@@ -22,6 +22,8 @@ public class SettingsActivity extends Activity {
     private EditText hourFrom;
     private EditText hourTo;
     private EditText volume;
+    private EditText messageSec;
+    private EditText hangUpAfter;
     private Button simBtn;
     private Button modeBtn;
     private String simId = "";
@@ -36,9 +38,16 @@ public class SettingsActivity extends Activity {
         LinearLayout sound = Ui.card(this);
         sound.addView(Ui.text(this, "How the message reaches the other person", 16, Ui.INK, true));
         mode = Math.max(0, Math.min(Util.PLAY_MODES.length - 1,
-                Prefs.getInt(this, Prefs.PLAY_STREAM, 0)));
+                Prefs.playMode(this)));
         modeBtn = Ui.secondary(this, Util.playModeLabel(mode));
         sound.addView(modeBtn, Ui.below(this, 10));
+        sound.addView(Ui.text(this, "• Second phone plays the message (recommended): this phone"
+                + " only places the calls, on the loudspeaker. A second phone running AutoCaller"
+                + " Player lies next to it, hears the ringing and then the person's \u201chello\u201d,"
+                + " and plays the message from its own loudspeaker. This phone's microphone"
+                + " carries it into the call. Because the sound comes from another phone, this"
+                + " phone does not remove it as echo. No message is needed on this phone.",
+                13, Ui.MUTED, false), Ui.below(this, 10));
         sound.addView(Ui.text(this, "Android does not let an app put sound straight into a phone"
                 + " call, so the message has to travel through a microphone. Many phones remove"
                 + " the sound of their own loudspeaker from a call as echo: the message then"
@@ -57,7 +66,8 @@ public class SettingsActivity extends Activity {
                 + "\u2022 Bluetooth headphones: connect them first. The call and the message"
                 + " go to the headphones; hold the microphone side of the headphones against"
                 + " one of its speakers. Many headphones filter their own sound, so test it.", 13, Ui.MUTED, false), Ui.below(this, 10));
-        volume = field(sound, "Loudness of the message (10 to 100 percent)",
+        volume = field(sound, "Loudness of the message, or of the call with a second phone"
+                        + " (10 to 100 percent)",
                 Prefs.getInt(this, Prefs.VOLUME_PCT, Prefs.DEF_VOLUME_PCT));
         sound.addView(Ui.text(this, "Keep 100 for the loudspeaker and earpiece. With earphones"
                 + " on the microphone, 60 to 80 usually sounds clearer.", 13, Ui.MUTED, false),
@@ -76,6 +86,23 @@ public class SettingsActivity extends Activity {
         repeat = field(timing, "Play the message this many times",
                 Prefs.getInt(this, Prefs.REPEAT, Prefs.DEF_REPEAT));
         s.body.addView(timing);
+
+        // ---- when to hang up
+        LinearLayout end = Ui.card(this);
+        end.addView(Ui.text(this, "Hang-up timer", 16, Ui.INK, true));
+        messageSec = field(end, "Length of the message on the second phone (seconds)",
+                Prefs.messageSec(this));
+        end.addView(Ui.text(this, "Used only with \u201cSecond phone plays the message\u201d. Enter"
+                + " the length of the recording on the second phone. Its screen shows it.",
+                13, Ui.MUTED, false), Ui.below(this, 4));
+        hangUpAfter = field(end, "Hang up this many seconds after the message ends (0 to 120)",
+                Prefs.getInt(this, Prefs.HANGUP_AFTER_SEC, Prefs.DEF_HANGUP_AFTER_SEC));
+        end.addView(Ui.text(this, "With a second phone the call is ended at: answer + message"
+                + " length + this value. The second phone starts about 1 to 2 seconds after the"
+                + " person says \u201chello\u201d, so keep at least 4 seconds. When this phone"
+                + " plays the message itself, the call ends this long after the message ends.",
+                13, Ui.MUTED, false), Ui.below(this, 4));
+        s.body.addView(end);
 
         // ---- retries
         LinearLayout retry = Ui.card(this);
@@ -166,6 +193,8 @@ public class SettingsActivity extends Activity {
                 .putInt(Prefs.RING_SEC, read(ring, Prefs.DEF_RING_SEC, 10, 90))
                 .putInt(Prefs.ANSWER_DELAY_MS, read(delay, Prefs.DEF_ANSWER_DELAY_MS, 0, 10000))
                 .putInt(Prefs.REPEAT, read(repeat, Prefs.DEF_REPEAT, 1, 5))
+                .putInt(Prefs.MESSAGE_SEC, read(messageSec, Prefs.DEF_MESSAGE_SEC, 1, 600))
+                .putInt(Prefs.HANGUP_AFTER_SEC, read(hangUpAfter, Prefs.DEF_HANGUP_AFTER_SEC, 0, 120))
                 .putInt(Prefs.RETRIES, read(retries, Prefs.DEF_RETRIES, 0, 5))
                 .putInt(Prefs.RETRY_WAIT_MIN, read(retryWait, Prefs.DEF_RETRY_WAIT_MIN, 0, 240))
                 .putInt(Prefs.HOUR_FROM, read(hourFrom, Prefs.DEF_HOUR_FROM, 0, 24))

@@ -27,6 +27,8 @@ final class Prefs {
     static final String PLAY_STREAM = "play_stream";         // one of the MODE_ values below
     static final String VOLUME_PCT = "volume_pct";           // loudness of the message, 10-100
     static final String TEST_NUMBER = "test_number";         // last number used for a test call
+    static final String MESSAGE_SEC = "message_sec";         // second-phone mode: length of its message
+    static final String HANGUP_AFTER_SEC = "hangup_after_sec"; // hang up this long after the message ends
 
     static final String LIST_NAME = "list_name";             // name of the last imported file
 
@@ -39,8 +41,12 @@ final class Prefs {
     static final int MODE_WIRED = 5;
     static final int MODE_DIRECT = 7;                    // straight into the call (system-only on most phones)
     static final int MODE_BLUETOOTH = 6;                 // Bluetooth headphones or headset
+    static final int MODE_SECOND_PHONE = 8;              // a second phone (AutoCaller Player) plays it
                         // wired earphones or an audio cable
     static final int DEF_VOLUME_PCT = 100;
+    static final int DEF_PLAY_STREAM = MODE_SECOND_PHONE;
+    static final int DEF_HANGUP_AFTER_SEC = 5;
+    static final int DEF_MESSAGE_SEC = 30;
 
     static final int DEF_GAP_SEC = 5;
     static final int DEF_RING_SEC = 35;
@@ -69,6 +75,23 @@ final class Prefs {
     static String getString(Context c, String key, String def) {
         String v = sp(c).getString(key, def);
         return v == null ? def : v;
+    }
+
+    /** The play method chosen in Settings. */
+    static int playMode(Context c) {
+        int m = getInt(c, PLAY_STREAM, DEF_PLAY_STREAM);
+        return m >= 0 && m < Util.PLAY_MODES.length ? m : DEF_PLAY_STREAM;
+    }
+
+    /**
+     * How long the message on the second phone lasts. Settings value if set, otherwise the
+     * length of the message recorded on this phone, otherwise 30 seconds.
+     */
+    static int messageSec(Context c) {
+        int s = getInt(c, MESSAGE_SEC, 0);
+        if (s > 0) return s;
+        int ms = getInt(c, AUDIO_MS, 0);
+        return ms > 0 ? (ms + 999) / 1000 : DEF_MESSAGE_SEC;
     }
 
     static void putInt(Context c, String key, int value) {

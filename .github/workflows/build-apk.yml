@@ -1,7 +1,8 @@
 name: Build APK
 
 # Builds the app every time something is pushed, and puts the result in two places:
-#   1. Releases  -> "AutoCaller APK (latest build)"  -> AutoCaller.apk   (download this on the phone)
+#   1. Releases  -> "AutoCaller APK (latest build)"  -> AutoCaller.apk (calling phone)
+#                                                     and AutoCallerPlayer.apk (second phone)
 #   2. the "build-output" branch: the APK, the full build log and a status file
 
 on:
@@ -47,8 +48,10 @@ jobs:
         run: |
           mkdir -p out
           cp build-log.txt out/build-log.txt 2>/dev/null || echo "no build log was produced" > out/build-log.txt
-          if ls app/build/outputs/apk/release/*.apk >/dev/null 2>&1; then
+          if ls app/build/outputs/apk/release/*.apk >/dev/null 2>&1 \
+             && ls player/build/outputs/apk/release/*.apk >/dev/null 2>&1; then
             cp app/build/outputs/apk/release/*.apk out/AutoCaller.apk
+            cp player/build/outputs/apk/release/*.apk out/AutoCallerPlayer.apk
             echo "success" > out/status.txt
           else
             echo "failed" > out/status.txt
@@ -61,7 +64,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: AutoCaller-apk
-          path: out/AutoCaller.apk
+          path: |
+            out/AutoCaller.apk
+            out/AutoCallerPlayer.apk
 
       - name: Publish the result to the build-output branch
         if: always()
@@ -80,7 +85,7 @@ jobs:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           gh release delete latest --yes --cleanup-tag 2>/dev/null || true
-          gh release create latest out/AutoCaller.apk \
+          gh release create latest out/AutoCaller.apk out/AutoCallerPlayer.apk \
             --title "AutoCaller APK (latest build)" \
-            --notes "Built from commit ${GITHUB_SHA}. Download AutoCaller.apk on the phone and open it to install." \
+            --notes "Built from commit ${GITHUB_SHA}. AutoCaller.apk goes on the phone that makes the calls; AutoCallerPlayer.apk goes on the second phone that plays the message." \
             --target "${GITHUB_SHA}"
