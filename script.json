@@ -1,12 +1,15 @@
 [
- {"id":"s01","text":"Meet AutoCaller. Automatic voice message calls, using two Android phones."},
- {"id":"s02","text":"Here's the problem. Android doesn't let apps play audio straight into a phone call. If the calling phone plays your message itself, it's removed as echo, and the other person hears nothing."},
- {"id":"s03","text":"AutoCaller solves this with a second phone. Phone one dials your list, with the call on speaker. Phone two listens. When someone answers and says hello, it plays your recorded message, right into phone one's microphone."},
- {"id":"s04","text":"Here's the real setup. Two phones, side by side, on a desk."},
- {"id":"s05","text":"On phone two, AutoCaller Player holds your recorded message. Tap Start listening, and it waits for the call to ring."},
- {"id":"s06","text":"On phone one, AutoCaller manages your number list, your calling hours, and a hang-up timer, so every call ends right after the message."},
- {"id":"s07","text":"Press Start, and AutoCaller dials the first number. Phone two hears the ringing, then the person's hello, and plays the message. When the timer runs out, the call ends, and the next number is dialed."},
- {"id":"s08","text":"Here's a live test. The receiving phone rings, the call is answered, and the message comes through."},
- {"id":"s09","text":"Every call is logged with its result: answered, busy, or not reached. And you can export the report as a spreadsheet at any time."},
- {"id":"s10","text":"AutoCaller. Set it up once, press Start, and let your phones do the calling."}
+ {"id":"g01","text":"Welcome to the AutoCaller user guide. Here's how to set up two phones and start your calls."},
+ {"id":"g02","text":"You need two Android phones. Phone one calls your number list, with the call on speaker. Phone two listens, and when the person says hello, it plays your recorded message."},
+ {"id":"g03","text":"Step one. Install AutoCaller on phone one, and AutoCaller Player on phone two. If Android asks, allow installs from this source, then tap Install."},
+ {"id":"g04","text":"Step two. Open AutoCaller on phone one. In the Setup box, tap Set to make it the default phone app. Then allow the permissions and the battery setting, until all three lines turn green."},
+ {"id":"g05","text":"Step three. On phone two, open AutoCaller Player. Tap Record, speak your message clearly, and tap Stop. Note the length it shows, for example, twenty-eight seconds."},
+ {"id":"g06","text":"Here's AutoCaller Player on a real phone, with the message ready."},
+ {"id":"g07","text":"Step four. Add the numbers you want to call. On phone one, tap View or edit list, then Add numbers. Type one number on each line. You can add a name after a comma. Then tap Add. For a long list, tap Import CSV instead, and pick a file with names and mobile numbers."},
+ {"id":"g08","text":"Step five. Open Settings on phone one. Choose Second phone plays the message. Under Hang-up timer, enter the message length, keep five seconds after it, and tap Save."},
+ {"id":"g09","text":"And here's AutoCaller on the real phone, ready to call."},
+ {"id":"g10","text":"Step six. Place the two phones side by side, with phone two's speaker next to phone one's microphone. Tap Start listening on phone two. Then tap Start on phone one."},
+ {"id":"g11","text":"Here's a real test call. Listen."},
+ {"id":"g12","text":"When the run is done, open Reports. Every call is listed as answered, busy, or not reached, and you can save the report as a CSV file."},
+ {"id":"g13","text":"That's it. Set it up once, press Start, and let your phones do the calling."}
 ]
